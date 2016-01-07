@@ -1,0 +1,370 @@
+Sub Mail_Range()
+
+SubName = "'Mail_Range'"
+On Error GoTo ErrorText:
+
+Application.ScreenUpdating = False
+Application.DisplayAlerts = False
+
+DebugTekst Tekst:="Start", FunctionName:=SubName
+'--------Start Function
+
+    Dim OutApp As Object
+    Dim OutMail As Object
+    'Dim OutAtt As Object
+    Dim FindString As String
+    Dim rng As Range
+    Dim rw As Integer
+    Dim clmn As Integer
+    Dim Clm As Integer
+    Dim MailSubject As String
+    Dim MailBody As String
+    Dim AddPDF As String
+    Dim PriceListRange As Range
+30
+'---------Wijzigingen aanbrengen
+
+'Tekst moet altijd beginnen en eindigen met een "
+'een nieuwe regel wordt gemaakt met 'VbNewLine', Om deze te 'koppelen' aan een bestaande regel gebruik de '&' tekens
+'voorbeeld: "Tekst voor de nieuwe regel" & VbNewLine & "Tekst op een nieuwe regel"
+
+'Email onderwerp vraag
+    MailSubjectTxt = "Geef het ontwerp van de email." 'Tekst
+    MailSubjectTitle = "Email onderwerp" 'Titel
+
+'Vraag of de prijslijst ook in de email zelf moet komen
+    MailBodyTxt = "Prijslijst opnemen in de email zelf?" 'Tekst
+    MailBodyTitle = "Prijslijst in email" 'Titel
+
+'Vraag of er een PDF met de prijslijst toegevoegd moet worden aan de email
+    AddPdfTxt = "Prijslijst als PDF toevoegen aan de email?" 'Tekst
+    AddPdfTitle = "Prijslijst als PDF toevoegen aan de email?" 'Titel
+
+'Informatie opslaan voor later gebruik. Dit gebeurt alleen voor dit tabblad
+    SaveInfoTxt = "Informatie opslaan voor later gebruik?" & vbNewLine & vbNewLine & "PS. Dit gebeurt alleen voor het huidige tabblad"
+    SaveInfoTitle = "Informatie opslaan?"
+
+'Vraag voor het selecteren van het gebied waar de prijslijst in staat
+    PriceListRangeTxt = "Selecteer het gebied van de prijslijst" 'Tekst van de vraag om de prijslijst te selecteren
+    PriceListRangeTitle = "Selecteer prijslijst" 'Titel van de vraag om de prijslijst te selecteren
+
+'Informatie weergave
+    SavedInfoTxt = "Informatie die is opgeslagen gebruiken?" & vbNewLine & "Opgeslagen informatie:"
+    SavedInfoTitle = "Opgeslagen informatie"
+
+'--------Vanaf hier niet meer wijzigen
+
+Set OutApp = CreateObject("Outlook.Application")
+Set OutMail = OutApp.CreateItem(0)
+'Set OutAtt = Outlook.Attachements
+
+40
+'Wanneer informatie is opgeslagen vragen overslaan en info weergeven
+If IsEmpty(ActiveSheet.Range("ZY1")) And IsEmpty(ActiveSheet.Range("ZZ3")) Then
+Vragen:
+    MailSubject = InputBox(Prompt:=MailSubjectTxt, Title:=MailSubjectTitle)
+    If MailSubject = "" Then End
+    
+    MailBody = MsgBox(Prompt:=MailBodyTxt, Title:=MailBodyTitle, Buttons:=vbYesNo)
+    
+    AddPDF = MsgBox(Prompt:=AddPdfTxt, Title:=AddPdfTitle, Buttons:=vbYesNo)
+    
+    SaveInfo = MsgBox(Prompt:=SaveInfoTxt, Title:=SaveInfoTitle, Buttons:=vbYesNo)
+
+
+    Application.ScreenUpdating = True
+    Set PriceListRange = Application.InputBox(Prompt:=PriceListRangeTxt, Title:=PriceListRangeTitle, Type:=8, Left:=50, Top:=50)
+    If PriceListRange Is Nothing Then End
+    Application.ScreenUpdating = False
+Else
+45
+    With ActiveSheet
+        MailSubject = .Range("ZZ2").Value
+        MailBody = .Range("ZZ3").Value
+        AddPDF = .Range("ZZ4").Value
+        Set PriceListRange = Range(.Range("ZZ5").Value)
+        
+    End With
+    
+    If MailBody = 6 Then
+        MailBody1 = "Ja"
+    Else
+        MailBody1 = "Nee"
+    End If
+    
+    If AddPDF = 6 Then
+        AddPDF1 = "Ja"
+    Else
+        AddPFD1 = "Nee"
+    End If
+46
+    SavedInfo = MsgBox(Prompt:=SavedInfoTxt & vbNewLine _
+                & "    Onderwerp email: " & MailSubject & vbNewLine _
+                & "    Prijslijst in email:   " & MailBody1 & vbNewLine _
+                & "    Prijslijst in bijlage: " & AddPDF1 & vbNewLine _
+                & "    Prijslijst gebied:     " & PriceListRange.Address, _
+                Title:=SavedInfoTitle, Buttons:=vbYesNo)
+                    
+    If SavedInfo = vbYes Then
+        GoTo VragenOverslaan
+    Else
+        ActiveSheet.Range("ZY1:ZZ10").Clear
+        GoTo Vragen
+    End If
+End If
+
+50
+'Save information to range
+If SaveInfo = vbYes Then
+    With ActiveSheet
+        .Range("ZY1").Value = "Saved mail information:"
+        .Range("ZY2").Value = "MailSubject:"
+        .Range("ZY3").Value = "Add pricelist in body?"
+        .Range("ZY4").Value = "Add pricelist as PDF?"
+        .Range("ZY5").Value = "Pricelist range:"
+       'DATA
+        .Range("ZZ2").Value2 = MailSubject
+        .Range("ZZ3").Value2 = MailBody
+        .Range("ZZ4").Value2 = AddPDF
+        .Range("ZZ5").Value2 = PriceListRange.Address
+    End With
+End If
+
+VragenOverslaan:
+55
+If MailBody = 6 Then 'vbYes
+    MailBody = RangetoHTML(PriceListRange)
+Else
+    MailBody = ""
+End If
+
+56
+'Range opslaan als PDF
+If AddPDF = 6 Then 'vbYes
+    AddPDF = SavePDF(PriceListRange)
+Else
+    AddPDF = ""
+End If
+            
+60
+With OutMail
+    .To = ""
+    .CC = ""
+    .BCC = ""
+                    
+    .Subject = MailSubject
+    .HTMLBody = MailBody
+    .Attachments.Add AddPDF
+    .Display   'or use .Send for direct send
+End With
+
+'Save AddPDF file name
+With ActiveSheet
+    .Range("ZY6").Value2 = "File name and folder PDF"
+    .Range("ZZ6").Value2 = AddPDF
+End With
+
+65 Set OutMail = Nothing
+66 Set OutApp = Nothing
+
+'--------End Function
+Error.DebugTekst Tekst:="Finish", FunctionName:=SubName
+Exit Sub
+
+ErrorText:
+If Err.Number <> 0 Then SeeText (SubName)
+
+Resume Next
+
+End Sub
+
+Private Function SavePDF(TxtRange As Range) As String
+
+SubName = "'SavePDF'"
+On Error GoTo ErrorText:
+
+Application.ScreenUpdating = False
+Application.DisplayAlerts = False
+DebugTekst Tekst:="Start", FunctionName:=SubName
+'--------Start Function
+Dim FileName As String
+
+10
+TempFolder = Environ("Temp")
+FileName = TempFolder & "\Pricelist" & Format(Now(), "dd-mm-yyyy") & ".pdf"
+20
+TxtRange. _
+        ExportAsFixedFormat Type:=xlTypePDF, FileName:= _
+        FileName, Quality:=xlQualityStandard, IncludeDocProperties:=True, _
+        IgnorePrintAreas:=False, OpenAfterPublish:=False
+30
+SavePDF = FileName
+
+'--------End Function
+DebugTekst Tekst:="Finish", FunctionName:=SubName
+Exit Function
+
+ErrorText:
+If Err.Number <> 0 Then SeeText (SubName)
+
+Resume Next
+
+End Function
+
+Private Function SeeText(SubName As String)
+Dim Msg As String
+
+1
+    Msg = "Error # " & Str(Err.Number) & Chr(13) _
+            & SubName & " genarated a error. Source: " & Err.Source & Chr(13) _
+            & "Error Line: " & Erl & Chr(13) _
+            & Err.Description
+
+   
+    DebugTekst Tekst:="Error values: " & vbNewLine _
+                        & "->Counter: " & Counter & vbNewLine _
+                        & "->SubName: " & SubName & vbNewLine _
+                        & "->Erl: " & Erl & vbNewLine _
+                        & "->Err.Number: " & Err.Number & vbNewLine _
+                        & "->Err.Source: " & Err.Source & vbNewLine _
+                        & "->Err.Description: " & Err.Description, _
+                        FunctionName:="SeeText"
+    
+30  Answer = MsgBox(Msg, vbQuestion + vbOKCancel, "Error", Err.HelpFile, Err.HelpContext)
+    
+    If Answer = vbCancel Then End
+
+'--------End Function
+DebugTekst Tekst:="Finish", FunctionName:="SeeText"
+Exit Function
+
+ErrorText:
+If Err.Number <> 0 Then
+    MsgBox "Fout in ErrorHandler"
+    End
+End If
+
+Resume Next
+End Function
+
+Private Function DebugTekst(Tekst As String, Optional ByVal FunctionName As String, Optional AutoText As Boolean)
+
+Dim s As String
+Dim n As Integer
+On Error Resume Next
+
+ErrorLog = LogFileName
+
+n = FreeFile()
+If Dir(ErrorLog) <> "" Then
+    Open ErrorLog For Append As #n
+Else
+    Open ErrorLog For Output As #n
+End If
+
+If IsEmpty(AutoText) Or AutoText = False Then _
+    If FunctionName <> "" Then Tekst = FunctionName & ">" & Tekst
+
+Debug.Print "--" & Format(Now(), "dd-mm-yyyy hh:mm.ss") & vbNewLine & Tekst ' write to immediate
+Print #n, vbNewLine & "----" & Format(Now(), "dd-mm-yyyy hh:mm.ss") & vbNewLine & Tekst ' write to file
+
+If IsEmpty(AutoText) Or AutoText = False Then
+    If FunctionName <> "" Then Application.StatusBar = FunctionName & "> " & Tekst
+Else
+    If FunctionName <> "" Then Application.StatusBar = FunctionName & "> " & Tekst
+End If
+
+Close #n
+
+End Function
+
+Function LogFileName() As String
+
+TempFolder = Environ("Temp")
+ErrorFile = "ErrorLog-PriceList" & Format(Now(), "ddmmyy") & ".txt"
+LogFileName = TempFolder & "\" & ErrorFile
+
+End Function
+
+Private Function RangetoHTML(rng As Range)
+
+SubName = "RangeToHtml"
+On Error GoTo ErrorText:
+
+Application.ScreenUpdating = False
+Application.DisplayAlerts = False
+DebugTekst Tekst:="Start", FunctionName:=SubName
+'--------Start Function
+
+Dim fso As Object
+Dim ts As Object
+Dim TempFile As String
+Dim TempWB As Workbook
+   
+1    TempFile = Environ$("temp") & "\TempPriceList.htm"
+
+    'Copy the range and create a new workbook to past the data in
+2    rng.Copy
+3    Set TempWB = Workbooks.Add(1)
+10    With TempWB.Sheets(1)
+        .Cells(1).PasteSpecial Paste:=8
+        .Cells(1).PasteSpecial xlPasteValues, , False, False
+        .Cells(1).PasteSpecial xlPasteFormats, , False, False
+        .Cells(1).PasteSpecial
+        .Cells(1).Select
+        Application.CutCopyMode = False
+        On Error Resume Next
+        .DrawingObjects.Visible = True
+        .DrawingObjects.Delete
+        On Error GoTo ErrorText:
+19    End With
+
+    'Publish the sheet to a htm file
+20    With TempWB.PublishObjects.Add( _
+         SourceType:=xlSourceRange, _
+         FileName:=TempFile, _
+         Sheet:=TempWB.Sheets(1).Name, _
+         Source:=TempWB.Sheets(1).UsedRange.Address, _
+         HtmlType:=xlHtmlStatic)
+        .Publish (True)
+29    End With
+
+    'Read all data from the htm file into RangetoHTML
+    Set fso = CreateObject("Scripting.FileSystemObject")
+    Set ts = fso.GetFile(TempFile).OpenAsTextStream(1, -2)
+30    RangetoHTML = ts.readall
+31    ts.Close
+32    RangetoHTML = Replace(RangetoHTML, "align=center x:publishsource=", _
+                          "align=left x:publishsource=")
+
+    'Close TempWB
+33    TempWB.Close savechanges:=False
+
+    'Delete the htm file we used in this function
+34    Kill TempFile
+
+    Set ts = Nothing
+    Set fso = Nothing
+    Set TempWB = Nothing
+
+'--------End Function
+DebugTekst Tekst:="Finish", FunctionName:=SubName
+Exit Function
+
+ErrorText:
+If Err.Number <> 0 Then SeeText (SubName)
+
+Resume Next
+
+End Function
+
+Private Sub Workbook_BeforeClose(Cancel As Boolean)
+
+ErrorLog = LogFileName
+AddPDF = Range("ZZ6").Value
+
+If ErrorLog <> "" Then If Dir(ErrorLog) <> "" Then Kill ErrorLog
+
+If AddPDF <> "" Then If Dir(AddPDF) <> "" Then Kill AddPDF
+
+End Sub
