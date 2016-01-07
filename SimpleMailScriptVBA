@@ -1,3 +1,12 @@
+Sub ClearPackinglist()
+
+With ActiveSheet
+    .Range("C6:K6").ClearContents
+    .Range("L11:L30").ClearContents
+    .Range("B33:K37").ClearContents
+End With
+
+End Sub
 Sub Mail_Range()
 
 SubName = "'Mail_Range'"
@@ -20,37 +29,88 @@ DebugTekst Tekst:="Start", FunctionName:=SubName
     Dim MailSubject As String
     Dim MailBody As String
     Dim AddPDF As String
-    Dim PriceListRange As Range
+    Dim SelectRange As Range
+    Dim SelectRangeStandard As Range
+    Dim MailSubjectStandard As String
+    Dim MailBodyQuestion As Boolean
+    Dim MailBodyStandard As Boolean
+    Dim AddPdfQuestion As Boolean
+    Dim AddPdfStandard As Boolean
+    Dim SavedInfoQuestion As Boolean
+    Dim SavedInfoStandard As Boolean
+    Dim SelectRangeQuestion As Boolean
+    Dim EmailTo As String
+    Dim EmailCC As String
+    Dim EmailBCC As String
+    Dim EmailBody As String
+    Dim EmailDirectSend As Boolean
+    Dim AddPdfLocation As String
+    Dim AddPdfName As String
+    Dim FailRng As Range
+    Dim FailTxt As String
+    Dim FailTitle As String
 30
 '---------Wijzigingen aanbrengen
 
 'Tekst moet altijd beginnen en eindigen met een "
 'een nieuwe regel wordt gemaakt met 'VbNewLine', Om deze te 'koppelen' aan een bestaande regel gebruik de '&' tekens
 'voorbeeld: "Tekst voor de nieuwe regel" & VbNewLine & "Tekst op een nieuwe regel"
-
+31
 'Email onderwerp vraag
+    'Een vast onderwerp (MailSubjectFixed = "") laat deze vraag niet zien.
+    MailSubjectStandard = "Packinglist L " & Sheets("Packing List").Range("C6").Value _
+                            & " | " & Sheets("Packing List").Range("G6").Value
     MailSubjectTxt = "Geef het ontwerp van de email." 'Tekst
     MailSubjectTitle = "Email onderwerp" 'Titel
-
-'Vraag of de prijslijst ook in de email zelf moet komen
+32
+'Vraag of de geselecteerde range ook in de email zelf moet komen
+    MailBodyQuestion = False 'Wanneer True wordt deze vraag geactiveerd
+    MailBodyStandard = False 'Standaard antwoord
     MailBodyTxt = "Prijslijst opnemen in de email zelf?" 'Tekst
     MailBodyTitle = "Prijslijst in email" 'Titel
-
-'Vraag of er een PDF met de prijslijst toegevoegd moet worden aan de email
-    AddPdfTxt = "Prijslijst als PDF toevoegen aan de email?" 'Tekst
-    AddPdfTitle = "Prijslijst als PDF toevoegen aan de email?" 'Titel
-
+33
+'Vraag of er een PDF met de geselecteerde range toegevoegd moet worden aan de email
+    AddPdfQuestion = False 'Wanneer True wordt deze vraag geactiveerd
+    AddPdfStandard = True 'Standaard antwoord
+    AddPdfTxt = "Paklijst als PDF toevoegen aan de email?" 'Tekst
+    AddPdfTitle = "PDF Paklijst toevoegen?" 'Titel
+    AddPdfName = "PackingList-" & Sheets("Packing List").Range("C6").Value 'Standaard naam (laat leeg voor een random naam)
+    AddPdfLocation = "J:\KlantFormulieren\Univeg\Druiven 2015-2016" 'Standaard opslaan op een vaste plaats (leeg laten om op te slaan in de temp-map)
+34
 'Informatie opslaan voor later gebruik. Dit gebeurt alleen voor dit tabblad
+    SaveInfoQuestion = False 'Wanneer True wordt deze vraag geactiveerd
+    SaveInfoStandard = False 'Standaard antwoord
     SaveInfoTxt = "Informatie opslaan voor later gebruik?" & vbNewLine & vbNewLine & "PS. Dit gebeurt alleen voor het huidige tabblad"
     SaveInfoTitle = "Informatie opslaan?"
-
+35
 'Vraag voor het selecteren van het gebied waar de prijslijst in staat
-    PriceListRangeTxt = "Selecteer het gebied van de prijslijst" 'Tekst van de vraag om de prijslijst te selecteren
-    PriceListRangeTitle = "Selecteer prijslijst" 'Titel van de vraag om de prijslijst te selecteren
-
-'Informatie weergave
-    SavedInfoTxt = "Informatie die is opgeslagen gebruiken?" & vbNewLine & "Opgeslagen informatie:"
+    SelectRangeQuestion = False 'Wanneer True wordt deze vraag geactiveerd
+    Set SelectRangeStandard = Range("A1:K30") 'Standaard antwoord
+    SelectRangeTxt = "Selecteer het gebied dat je wil gebruiken" 'Tekst van de vraag om het te gebruiken gebied te selecteren
+    SelectRangeTitle = "Selecteer het gebruikte gebied" 'Titel van de vraag om de het te gebruiken gebied te selecteren
+36
+'Vraag of de opgeslagen informatie moet worden gebruikt, of de standaard informatie
+    SavedInfoQuestion = False 'Wanneer True wordt deze vraag geactiveerd
+    SavedInfoStandard = False 'Standaard antwoord
+    SavedInfoTxt = "Informatie die is opgeslagen gebruiken?" & vbNewLine & "Opgeslagen informatie:" 'Opgeslagen informatie wordt weergegeven
     SavedInfoTitle = "Opgeslagen informatie"
+    StandardInfoTxt = "De standaard informatie gebruiken?" & vbNewLine & "Opgeslagen informatie:" 'Opgeslagen informatie wordt weergegeven
+    StandardTitle = "Standaard informatie"
+37
+'Standaar email gegevens
+    EmailTo = Sheets("Packing List").Range("C39").Value
+    EmailCC = ""
+    EmailBCC = ""
+        'EmailBody: Deze tekst wordt boven de Excel informatie weergegeven
+    EmailBody = "Dear Mr/Mrs " & vbNewLine & " Please find attached the packing list of the load that is expected to arrive on " _
+                & Format(Sheets("Packing List").Range("I6").Value, "mm/dd/yyyy")
+    EmailDirectSend = False 'Gebruik False om de email eerst weer te geven
+
+38
+'Tekst voor het aangeven van een fout in het formulier (geef in FailRng aan welke cel de tekst FOUT bevat)
+    Set FailRng = ActiveSheet.Range("N39")
+    FailTxt = "Er is een fout in het invulformulier die voorkomt dat er een verzending van de gegevens kan plaatsvinden"
+    FailTitle = "Fout -> geen verzending!"
 
 '--------Vanaf hier niet meer wijzigen
 
@@ -59,30 +119,76 @@ Set OutMail = OutApp.CreateItem(0)
 'Set OutAtt = Outlook.Attachements
 
 40
-'Wanneer informatie is opgeslagen vragen overslaan en info weergeven
-If IsEmpty(ActiveSheet.Range("ZY1")) And IsEmpty(ActiveSheet.Range("ZZ3")) Then
+'Wanneer er in de fout-indicator een fout is waargenomen mag er niet verzonden worden.
+If FailRng.Value = "FOUT" Then
+    MsgBox Prompt:=FailTxt, Buttons:=vbCritical, Title:=FailTitle
+    End
+End If
+
+'Wanneer informatie is opgeslagen vragen overgeslagen en info weergeven
+If SavedInfoQuestion = False Then _
+    GoTo UseStandardInfo
+
+If IsEmpty(ActiveSheet.Range("AA1")) And IsEmpty(ActiveSheet.Range("AB3")) Then
 Vragen:
-    MailSubject = InputBox(Prompt:=MailSubjectTxt, Title:=MailSubjectTitle)
-    If MailSubject = "" Then End
+    DebugTekst Tekst:="Show questions", FunctionName:="QuestionsTag"
+'Onderwerp
+    If MailSubjectStandard <> "" Then
+        MailSubject = InputBox(Prompt:=MailSubjectTxt, Title:=MailSubjectTitle)
+        If MailSubject = "" Then End
+    Else
+        MailSubject = MailSubjectStandard
+    End If
+'Mail inhoud
+    If MailBodyQuestion Then
+        MailBody = MsgBox(Prompt:=MailBodyTxt, Title:=MailBodyTitle, Buttons:=vbYesNo)
+    Else
+        If MailBodyStandard Then
+            MailBody = 6
+        Else
+            MailBody = 5
+        End If
+    End If
     
-    MailBody = MsgBox(Prompt:=MailBodyTxt, Title:=MailBodyTitle, Buttons:=vbYesNo)
+'PDF toevoegen
+    If AddPdfQuestion Then
+        AddPDF = MsgBox(Prompt:=AddPdfTxt, Title:=AddPdfTitle, Buttons:=vbYesNo)
+    Else
+        If AddPdfStandard Then
+            AddPDF = 6
+        Else
+            AddPDF = 5
+        End If
+    End If
     
-    AddPDF = MsgBox(Prompt:=AddPdfTxt, Title:=AddPdfTitle, Buttons:=vbYesNo)
-    
-    SaveInfo = MsgBox(Prompt:=SaveInfoTxt, Title:=SaveInfoTitle, Buttons:=vbYesNo)
+'Informatie opslaan
+    If SavedInfoQuestion Then
+        SaveInfo = MsgBox(Prompt:=SaveInfoTxt, Title:=SaveInfoTitle, Buttons:=vbYesNo)
+    Else
+        If SavedInfoStandard Then
+            SaveInfo = 6
+        Else
+            SaveInfo = 5
+        End If
+    End If
 
-
-    Application.ScreenUpdating = True
-    Set PriceListRange = Application.InputBox(Prompt:=PriceListRangeTxt, Title:=PriceListRangeTitle, Type:=8, Left:=50, Top:=50)
-    If PriceListRange Is Nothing Then End
-    Application.ScreenUpdating = False
-Else
+'Selecteerd het te gebruiken gebied
+    If SelectRangeQuestion Then
+        Application.ScreenUpdating = True
+        Set SelectRange = Application.InputBox(Prompt:=SelectRangeTxt, Title:=SelectRangeTitle, Type:=8, Left:=50, Top:=50)
+        If SelectRange Is Nothing Then End
+        Application.ScreenUpdating = False
+    Else
+        Set SelectRange = SelectRangeStandard
+    End If
+Else 'er was iets opgeslagen
 45
+    DebugTekst Tekst:="There is saved data", FunctionName:="QuestionsElseTag"
     With ActiveSheet
-        MailSubject = .Range("ZZ2").Value
-        MailBody = .Range("ZZ3").Value
-        AddPDF = .Range("ZZ4").Value
-        Set PriceListRange = Range(.Range("ZZ5").Value)
+        MailSubject = .Range("AB2").Value
+        MailBody = .Range("AB3").Value
+        AddPDF = .Range("AB4").Value
+        Set SelectRange = Range(.Range("AB5").Value)
         
     End With
     
@@ -93,84 +199,147 @@ Else
     End If
     
     If AddPDF = 6 Then
-        AddPDF1 = "Ja"
+        AddPdf1 = "Ja"
     Else
-        AddPFD1 = "Nee"
+        AddPdf1 = "Nee"
     End If
+    
 46
-    SavedInfo = MsgBox(Prompt:=SavedInfoTxt & vbNewLine _
-                & "    Onderwerp email: " & MailSubject & vbNewLine _
-                & "    Prijslijst in email:   " & MailBody1 & vbNewLine _
-                & "    Prijslijst in bijlage: " & AddPDF1 & vbNewLine _
-                & "    Prijslijst gebied:     " & PriceListRange.Address, _
-                Title:=SavedInfoTitle, Buttons:=vbYesNo)
-                    
-    If SavedInfo = vbYes Then
-        GoTo VragenOverslaan
-    Else
-        ActiveSheet.Range("ZY1:ZZ10").Clear
-        GoTo Vragen
+    If SaveQuestion Then
+        SavedInfo = MsgBox(Prompt:=SavedInfoTxt & vbNewLine _
+                    & "    Onderwerp email: " & MailSubject & vbNewLine _
+                    & "    Prijslijst in email:   " & MailBody1 & vbNewLine _
+                    & "    Prijslijst in bijlage: " & AddPdf1 & vbNewLine _
+                    & "    Prijslijst gebied:     " & SelectRange.Address, _
+                    Title:=SavedInfoTitle, Buttons:=vbYesNo)
+                        
+        If SavedInfo = vbYes Then
+            GoTo VragenOverslaan
+        Else
+            StandardInfo = MsgBox(Prompt:=StandardInfoTxt & vbNewLine _
+                    & "    Onderwerp email: " & MailSubjectStandard & vbNewLine _
+                    & "    Selectie in email:   " & MailBodyStandard & vbNewLine _
+                    & "    Selectie in bijlage: " & AddPdfStandard & vbNewLine _
+                    & "    Geselecteerdgebied:     " & SelectRangeStandard.Address, _
+                    Title:=StandardInfoTitle, Buttons:=vbYesNo)
+            
+            If StandardInfo = vbYes Then
+                GoTo UseStandardInfo
+            Else
+                ActiveSheet.Range("AA1:AB10").Clear
+                GoTo Vragen
+            End If
+        End If
     End If
 End If
 
 50
 'Save information to range
+    'Wanneer er een 1004 error wordt gegeven is er een wachtwoord ingesteld
 If SaveInfo = vbYes Then
     With ActiveSheet
-        .Range("ZY1").Value = "Saved mail information:"
-        .Range("ZY2").Value = "MailSubject:"
-        .Range("ZY3").Value = "Add pricelist in body?"
-        .Range("ZY4").Value = "Add pricelist as PDF?"
-        .Range("ZY5").Value = "Pricelist range:"
+        .Range("AA1").Value = "Saved mail information:"
+        .Range("AA2").Value = "MailSubject:"
+        .Range("AA3").Value = "Add Selected range in body?"
+        .Range("AA4").Value = "Add Selected range as PDF?"
+        .Range("AA5").Value = "Selected range:"
        'DATA
-        .Range("ZZ2").Value2 = MailSubject
-        .Range("ZZ3").Value2 = MailBody
-        .Range("ZZ4").Value2 = AddPDF
-        .Range("ZZ5").Value2 = PriceListRange.Address
+        .Range("AB2").Value2 = MailSubject
+        .Range("AB3").Value2 = MailBody
+        .Range("AB4").Value2 = AddPDF
+        .Range("AB5").Value2 = SelectRange.Address
     End With
 End If
 
 VragenOverslaan:
+    DebugTekst Tekst:="Skip questions or go further", FunctionName:="SkipQuestionTag"
 55
 If MailBody = 6 Then 'vbYes
-    MailBody = RangetoHTML(PriceListRange)
+    MailBody = RangetoHTML(SelectRange)
 Else
     MailBody = ""
 End If
 
+'Add the accompanying text to the email body (above the SelectRange)
+MailBody = EmailBody & vbNewLine & vbNewLine & MailBody
+
 56
 'Range opslaan als PDF
 If AddPDF = 6 Then 'vbYes
-    AddPDF = SavePDF(PriceListRange)
+    AddPDF = SavePDF(SelectRange, AddPdfLocation, AddPdfName)
 Else
     AddPDF = ""
 End If
             
 60
 With OutMail
-    .To = ""
-    .CC = ""
-    .BCC = ""
+    .To = EmailTo
+    .CC = EmailCC
+    .BCC = EmailBCC
                     
     .Subject = MailSubject
     .HTMLBody = MailBody
     .Attachments.Add AddPDF
-    .Display   'or use .Send for direct send
+    If EmailDirectSend Then
+        .Send
+    Else
+        .Display
+    End If
 End With
 
+61
 'Save AddPDF file name
-With ActiveSheet
-    .Range("ZY6").Value2 = "File name and folder PDF"
-    .Range("ZZ6").Value2 = AddPDF
-End With
+    With ActiveSheet
+        .Range("AA6").Value2 = "File name and folder PDF"
+        .Range("AB6").Value2 = AddPDF
+    End With
 
 65 Set OutMail = Nothing
 66 Set OutApp = Nothing
 
+GoTo EndFunction
+
+100
+UseStandardInfo:
+    DebugTekst Tekst:="Use standard information", FunctionName:="UseStandardInfoTag"
+    If MailSubjectStandard = "" Then
+        GoTo CantUseStandard
+    Else
+        MailSubject = MailSubjectStandard
+    End If
+
+    If MailBodyStandard Then
+        MailBody = 6
+    Else
+        MailBody = 5
+    End If
+    
+    If AddPdfStandard Then
+        AddPDF = 6
+    Else
+        AddPDF = 5
+    End If
+
+    If SelectRangeStandard Is Nothing Then
+        GoTo CantUseStandard
+    Else
+        Set SelectRange = SelectRangeStandard
+    End If
+GoTo VragenOverslaan
+
+150
+CantUseStandard:
+    DebugTekst Tekst:="Can't use standard information", FunctionName:="CantUseStandardTag"
+    MsgBox ("Standard information can't be used, questions will be displayed")
+    GoTo Vragen
+
 '--------End Function
-Error.DebugTekst Tekst:="Finish", FunctionName:=SubName
+99
+EndFunction:
+DebugTekst Tekst:="Finish", FunctionName:=SubName
 Exit Sub
 
+900
 ErrorText:
 If Err.Number <> 0 Then SeeText (SubName)
 
@@ -178,7 +347,7 @@ Resume Next
 
 End Sub
 
-Private Function SavePDF(TxtRange As Range) As String
+Private Function SavePDF(TxtRange As Range, AddPdfLocation As String, AddPdfName As String) As String
 
 SubName = "'SavePDF'"
 On Error GoTo ErrorText:
@@ -190,8 +359,28 @@ DebugTekst Tekst:="Start", FunctionName:=SubName
 Dim FileName As String
 
 10
-TempFolder = Environ("Temp")
-FileName = TempFolder & "\Pricelist" & Format(Now(), "dd-mm-yyyy") & ".pdf"
+If AddPdfName <> "" And AddPdfLocation <> "" Then
+    FileName = AddPdfLocation & "\" & AddPdfName & ".pdf"
+    'Check if AddPDFLocation is available
+    If Dir(AddPdfLocation & "\") = "" Then
+        MsgBox "Can not locate the AddPDFLocation -> Temp-folder is used to save PDF"
+        FileName = Environ("Temp") & "\" & AddPdfName & ".pdf"
+    End If
+ElseIf AddPdfName = "" And AddPdfLocation <> "" Then
+    FileName = AddPdfLocation & "\" & Format(Now(), "dd-mm-yyyy") & ".pdf"
+    'Check if AddPDFLocation is available
+    If Dir(AddPdfLocation & "\") = "" Then
+        MsgBox "Can not locate the AddPDFLocation -> Temp-folder is used to save PDF"
+        FileName = Environ("Temp") & "\" & Format(Now(), "dd-mm-yyyy") & ".pdf"
+    End If
+ElseIf AddPdfLocation = "" And AddPdfName <> "" Then
+    TempFolder = Environ("Temp")
+    FileName = TempFolder & "\" & AddPdfName & ".pdf"
+Else
+    TempFolder = Environ("Temp")
+    FileName = TempFolder & "\Attachement" & Format(Now(), "dd-mm-yyyy") & ".pdf"
+End If
+
 20
 TxtRange. _
         ExportAsFixedFormat Type:=xlTypePDF, FileName:= _
@@ -220,7 +409,13 @@ Dim Msg As String
             & "Error Line: " & Erl & Chr(13) _
             & Err.Description
 
-   
+If Err.Number = 1004 Then _
+    Msg = "Error # " & Str(Err.Number) & Chr(13) _
+            & SubName & " genarated a error. Source: " & Err.Source & Chr(13) _
+            & "Error Line: " & Erl & Chr(13) _
+            & "This is a protected sheet, please remove the protection of the columns AA and AB" & vbNewLine _
+            & "These columns are used to save some data"
+
     DebugTekst Tekst:="Error values: " & vbNewLine _
                         & "->Counter: " & Counter & vbNewLine _
                         & "->SubName: " & SubName & vbNewLine _
@@ -281,7 +476,7 @@ End Function
 Function LogFileName() As String
 
 TempFolder = Environ("Temp")
-ErrorFile = "ErrorLog-PriceList" & Format(Now(), "ddmmyy") & ".txt"
+ErrorFile = "ErrorLog-SimpleSendMailScript" & Format(Now(), "ddmmyy") & ".txt"
 LogFileName = TempFolder & "\" & ErrorFile
 
 End Function
@@ -301,7 +496,7 @@ Dim ts As Object
 Dim TempFile As String
 Dim TempWB As Workbook
    
-1    TempFile = Environ$("temp") & "\TempPriceList.htm"
+1    TempFile = Environ$("temp") & "\TempSelectRange.htm"
 
     'Copy the range and create a new workbook to past the data in
 2    rng.Copy
@@ -361,7 +556,7 @@ End Function
 Private Sub Workbook_BeforeClose(Cancel As Boolean)
 
 ErrorLog = LogFileName
-AddPDF = Range("ZZ6").Value
+AddPDF = Range("AB6").Value
 
 If ErrorLog <> "" Then If Dir(ErrorLog) <> "" Then Kill ErrorLog
 
